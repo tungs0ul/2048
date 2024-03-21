@@ -22,6 +22,7 @@ export const initBoard = (): Game => {
         ],
         tiles: [],
     }
+    let i = 0
     for (let y = 0; y < 4; ++y) {
         for (let x = 0; x < 4; ++x) {
             let value = randomFromArray([0, 1, 2])
@@ -33,19 +34,53 @@ export const initBoard = (): Game => {
                     y,
                     value
                 })
+                i += 1
+            }
+            if (i == 2) {
+                return game
             }
         }
     }
     return game
 }
 
-export type MoveResult = {
-    // moved: [number, number][]
-    merged: [number, number][]
+export const rotateClockwise = (game: Game) => {
+    game.tiles.forEach(tile => {
+        let tmp = tile.x;
+        tile.x = 3 - tile.y;
+        tile.y = tmp;
+    });
+    for (let i = 0; i < 4; ++i) {
+        for (let j = i + 1; j < 4; ++j) {
+            let tmp = game.board[i][j]
+            game.board[i][j] = game.board[j][i]
+            game.board[j][i] = tmp
+        }
+    }
+    game.board.forEach((row) => {
+        row.reverse()
+    })
+}
+
+export const rotateCounterClockwise = (game: Game) => {
+    game.tiles.forEach(tile => {
+        let tmp = tile.y;
+        tile.y = 3 - tile.x;
+        tile.x = tmp;
+    });
+    game.board.forEach((row) => {
+        row.reverse()
+    })
+    for (let i = 0; i < 4; ++i) {
+        for (let j = i + 1; j < 4; ++j) {
+            let tmp = game.board[i][j]
+            game.board[i][j] = game.board[j][i]
+            game.board[j][i] = tmp
+        }
+    }
 }
 
 export const moveDown = (game: Game) => {
-    let merged: [number, number][] = []
     for (let y = 3; y > 0; --y) {
         for (let x = 0; x < 4; ++x) {
             if (game.board[y][x] === 0) {
@@ -60,7 +95,6 @@ export const moveDown = (game: Game) => {
             } else if (game.board[y][x] === game.board[y - 1][x]) {
                 game.board[y][x] *= 2
                 if (game.board[y - 1][x] !== 0) {
-                    merged.push([y, x])
                     game.tiles = game.tiles.filter(tile => !(tile.x === x && tile.y === y))
                     let tile = game.tiles.find((tile) => tile.x === x && tile.y === y - 1)
                     if (tile !== undefined) {
@@ -73,7 +107,6 @@ export const moveDown = (game: Game) => {
             }
         }
     }
-    return { merged }
 }
 
 const getRandomEmptySlot = (array: number[]): number | undefined => {
@@ -92,7 +125,7 @@ const getRandomEmptySlot = (array: number[]): number | undefined => {
 }
 
 export const moveDownAndInsert = (game: Game) => {
-    let result = moveDown(game)
+    moveDown(game)
     let idx = getRandomEmptySlot(game.board[0])
     if (idx !== undefined) {
         let value = randomFromArray([1, 2])
@@ -104,40 +137,6 @@ export const moveDownAndInsert = (game: Game) => {
             value
         })
     }
-    return result
-}
-
-export const moveLeft = (game: Game) => {
-    let merged: [number, number][] = []
-
-    for (let y = 0; y < 4; ++y) {
-        for (let x = 0; x < 3; ++x) {
-            if (game.board[y][x] === 0) {
-                game.board[y][x] = game.board[y][x + 1]
-                if (game.board[y][x + 1] !== 0) {
-                    let tile = game.tiles.find((tile) => tile.x === x + 1 && tile.y === y)
-                    if (tile) {
-                        tile.x = x
-                    }
-                }
-                game.board[y][x + 1] = 0
-            } else if (game.board[y][x] === game.board[y][x + 1]) {
-                game.board[y][x] *= 2
-                if (game.board[y][x + 1] !== 0) {
-                    merged.push([y, x])
-                    game.tiles = game.tiles.filter(tile => !(tile.x === x && tile.y === y))
-                    let idx = game.tiles.findIndex((tile) => tile.x === x + 1 && tile.y === y)
-                    if (idx !== -1) {
-                        game.tiles[idx].x = x
-                        game.tiles[idx].value *= 2
-                    }
-                }
-                game.board[y][x + 1] = 0
-                game.tiles = game.tiles.filter(tile => !(tile.x === x + 1 && tile.y === y))
-            }
-        }
-    }
-    return { merged }
 }
 
 export const getBoardCol = (board: Board, col: number): number[] => {
@@ -146,6 +145,12 @@ export const getBoardCol = (board: Board, col: number): number[] => {
         result.push(board[i][col])
     }
     return result
+}
+
+export const moveLeft = (game: Game) => {
+    rotateCounterClockwise(game)
+    moveDown(game)
+    rotateClockwise(game)
 }
 
 export const moveLeftAndInsert = (game: Game) => {
@@ -163,39 +168,14 @@ export const moveLeftAndInsert = (game: Game) => {
     return result
 }
 
-export const moveRight = (game: Game): MoveResult => {
-    let merged: [number, number][] = []
-    for (let y = 0; y < 4; ++y) {
-        for (let x = 3; x > 0; --x) {
-            if (game.board[y][x] === 0) {
-                game.board[y][x] = game.board[y][x - 1]
-                game.board[y][x - 1] = 0
-                let tile = game.tiles.find((tile) => tile.x === x - 1 && tile.y === y)
-                if (tile) {
-                    tile.x = x
-                }
-            } else if (game.board[y][x] === game.board[y][x - 1]) {
-                game.board[y][x] *= 2
-                if (game.board[y][x - 1] !== 0) {
-                    game.tiles = game.tiles.filter(tile => !(tile.x === x && tile.y === y))
-                    let tile = game.tiles.find((tile) => tile.x === x - 1 && tile.y === y)
-                    if (tile) {
-                        tile.x = x
-                        tile.value *= 2
-                    }
-                    merged.push([y, x])
-                }
-                game.board[y][x - 1] = 0
-                game.tiles = game.tiles.filter(tile => !(tile.x === x - 1 && tile.y === y))
-
-            }
-        }
-    }
-    return { merged }
+export const moveRight = (game: Game) => {
+    rotateClockwise(game)
+    moveDown(game)
+    rotateCounterClockwise(game)
 }
 
 export const moveRightAndInsert = (game: Game) => {
-    let result = moveRight(game)
+    moveRight(game)
     let idx = getRandomEmptySlot(getBoardCol(game.board, 0))
     if (idx !== undefined) {
         let value = randomFromArray([1, 2])
@@ -207,41 +187,18 @@ export const moveRightAndInsert = (game: Game) => {
             value
         })
     }
-    return result
 }
 
 export const moveUp = (game: Game) => {
-    let merged: [number, number][] = []
-    for (let y = 0; y < 3; ++y) {
-        for (let x = 0; x < 4; ++x) {
-            if (game.board[y][x] === 0) {
-                game.board[y][x] = game.board[y + 1][x]
-                game.board[y + 1][x] = 0
-                let tile = game.tiles.find((tile) => tile.x === x && tile.y === y + 1)
-                if (tile) {
-                    tile.y = y
-                }
-            } else if (game.board[y][x] === game.board[y + 1][x]) {
-                game.board[y][x] *= 2
-                if (game.board[y + 1][x] !== 0) {
-                    game.tiles = game.tiles.filter(tile => !(tile.x === x && tile.y === y))
-                    let tile = game.tiles.find((tile) => tile.x === x && tile.y === y + 1)
-                    if (tile) {
-                        tile.y = y
-                        tile.value *= 2
-                    }
-                    merged.push([y, x])
-                }
-                game.board[y + 1][x] = 0
-                game.tiles = game.tiles.filter(tile => !(tile.x === x && tile.y === y + 1))
-            }
-        }
-    }
-    return { merged }
+    rotateCounterClockwise(game)
+    rotateCounterClockwise(game)
+    moveDown(game)
+    rotateCounterClockwise(game)
+    rotateCounterClockwise(game)
 }
 
 export const moveUpAndInsert = (game: Game) => {
-    let result = moveUp(game)
+    moveUp(game)
     let idx = getRandomEmptySlot(game.board[3])
     if (idx !== undefined) {
         let value = randomFromArray([1, 2])
@@ -253,7 +210,6 @@ export const moveUpAndInsert = (game: Game) => {
             value
         })
     }
-    return result
 }
 
 export const isGameOver = (game: Game) => {
